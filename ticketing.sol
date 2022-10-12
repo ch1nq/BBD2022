@@ -235,4 +235,48 @@ contract TicketingSystem {
     //     // TODO: verify ticket 
     // }
 
+    function getTicketsForSale(EventID event_id) public view returns (Ticket[] memory) {
+        Ticket[] memory event_tickets = new Ticket[](events[event_id].ticket_ids.length);
+        uint tickets_for_sale = 0;
+        for(uint i; i < events[event_id].ticket_ids.length; i++){
+            TicketID ticket_id = events[event_id].ticket_ids[i];
+            if(event_tickets[i].is_for_sale) {
+                event_tickets[tickets_for_sale] = tickets[ticket_id];
+                tickets_for_sale++;
+            }
+        }
+        return event_tickets;
+    }
+
+    function getCheapestTickets(EventID event_id) public view returns (Ticket memory) {
+        Ticket[] memory tickets_for_sale = getTicketsForSale(event_id);
+        uint256 cheapest_ticket_price = getMaxUint();
+        uint256 cheapest_ticket_index = getMaxUint();
+        for(uint i; i < tickets_for_sale.length; i++) {
+            // Stop once the first non-existing ticket is reached, 
+            // since we assume that tickets_for_sale contains all tickets
+            // for sale in the start of the array.
+            if(EventID.unwrap(tickets_for_sale[i].event_id) == 0x0) {
+                break;
+            }
+
+            // TODO: handle case where multiple tickets are the cheapest
+            if(tickets_for_sale[i].price < cheapest_ticket_price) {
+                cheapest_ticket_index = i;
+            }
+        }
+
+        // If the index is larger than the array length then no ticket was found
+        require(cheapest_ticket_index > tickets_for_sale.length);
+
+        return tickets_for_sale[cheapest_ticket_index];
+    }
+
+    /// Largest uint256 possible. Calculated using underflow 
+    function getMaxUint() public pure returns(uint256){
+        unchecked{
+            return uint256(0) - 1;
+        }
+    }
+
 }
