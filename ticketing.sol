@@ -55,12 +55,21 @@ contract TicketingSystem {
     // event created
     // event cancelled 
 
-    // Errors:
+    // Ticket errors
     error NotEnoughFunds(uint funds_needed);
+    error TicketDoesNotExists(TicketID ticket_id);
+    error NotTicketOwner(TicketID ticket_id);
+    error TicketNotForSale(TicketID ticket_id);
+    error SelfTransfer();
+    
+    // Event errors
+    error EventDoesNotExists(EventID event_id);
+    error EventAlreadyExists(EventID event_id);
+    error EventNotActive(EventID event_id);
+    error NotEventHost(EventID event_id);
+    error TimeNotPassedStartDate(uint256 start_time, uint256 current_time);
 
-    constructor() {
-        // systemOwner = payable(msg.sender);
-    }
+    constructor() {}
 
     /// Creates a new event with the message sender as the host
     function createEvent(
@@ -70,7 +79,9 @@ contract TicketingSystem {
         UnixTimestamp start_timestamp,
         TicketContent[] memory ticket_contents
     ) public {        
-        require(events[event_id].status == EventStatus.DoesNotExist);
+        if (events[event_id].status != EventStatus.DoesNotExist) {
+            revert EventAlreadyExists(event_id);
+        }
 
         // Initialize event and associate it with the host
         ownershipEvents[Host.wrap(msg.sender)][event_id] = true;
@@ -123,8 +134,12 @@ contract TicketingSystem {
         eventIsActive(tickets[ticket_id].event_id) 
     {
         // You can't transfer tickets to yourself
-        require(User.unwrap(tickets[ticket_id].owner) != msg.sender);
-        require(msg.value >= tickets[ticket_id].price);
+        if (User.unwrap(tickets[ticket_id].owner) == msg.sender) {
+            revert SelfTransfer();
+        }
+        if (msg.value < tickets[ticket_id].price) {
+            revert NotEnoughFunds(tickets[ticket_id].price);
+        }
 
         User previous_owner = tickets[ticket_id].owner;
         User new_owner = User.wrap(msg.sender);
@@ -168,7 +183,13 @@ contract TicketingSystem {
         onlyEventHost(event_id)
         eventIsActive(event_id)
     {
-        require(block.timestamp >= UnixTimestamp.unwrap(events[event_id].start_timestamp));
+        if(block.timestamp < UnixTimestamp.unwrap(events[event_id].start_timestamp)) {
+            revert TimeNotPassedStartDate(
+                UnixTimestamp.unwrap(events[event_id].start_timestamp), 
+                block.timestamp
+            );
+        }
+        
         events[event_id].status = EventStatus.Completed;
         
         // Pay host
@@ -204,25 +225,33 @@ contract TicketingSystem {
 
     /// Ensures that msg.sender is the host of the given event
     modifier onlyEventHost(EventID event_id) {
-        require(Host.unwrap(events[event_id].owner) == msg.sender);
+        if (Host.unwrap(events[event_id].owner) != msg.sender) {
+            revert NotEventHost(event_id);
+        }
         _;
     }
 
     /// Ensures that msg.sender is the owner of the given ticket
     modifier onlyTicketOwner(TicketID ticket_id) {
-        require(User.unwrap(tickets[ticket_id].owner) == msg.sender);
+        if (User.unwrap(tickets[ticket_id].owner) != msg.sender) {
+            revert NotTicketOwner(ticket_id);
+        }
         _;
     }
 
     /// Ensures that event exists and is active - e.g. not cancelled or complete
     modifier eventIsActive(EventID event_id) {
-        require(events[event_id].status == EventStatus.Active);
+        if(events[event_id].status != EventStatus.Active) {
+            revert EventNotActive(event_id);
+        }
         _;
     }
 
     /// Ensures that a ticket is for sale
     modifier ticketIsForSale(TicketID ticket_id) {
-        require(tickets[ticket_id].is_for_sale);
+        if(!tickets[ticket_id].is_for_sale) {
+            revert TicketNotForSale(ticket_id);
+        }
         _;
     }
 
