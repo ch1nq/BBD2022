@@ -113,7 +113,7 @@ class TicketingSystemAPI:
         self.contract.completeEvent(event_id, {"from": accounts[user_id]})
 
     def is_event_owner(self, user_id, event_id):
-        return self.get_event(event_id)["owner"] == accounts[user_id]
+        return self.get_event(int(event_id))["owner"] == accounts[int(user_id)]
 
     def withdraw(self, user_id):
         self.contract.withdraw({"from": accounts[user_id]})

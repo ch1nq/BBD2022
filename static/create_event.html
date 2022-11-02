@@ -1,28 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
+{header}
 
 <body>
-    <form action="/id/{user_id}" method="post">
-        Event id: <input type="number" name="event_id">
-        Name: <input type="text" name="name">
-        Description: <input type="text" name="description">
-        Start time: <input type="datetime" name="start_timestamp">
-        Contents: <textarea rows="5" cols="60" type="text" name="ticket_contents">
+    {navbar}
+    <div class="vstack gap-4 col-md-5 mx-auto">
+        <h4>Create event</h4>
+        <form action="/id/{user_id}" method="post">
+            <div class="form-floating mb-3">
+                <input type="number" name="event_id" class="form-control" id="create-event--event_id">
+                <label for=" create-event--event_id" class="form-label">Event id</label>
+            </div>
+
+            <div class="form-floating mb-3">
+                <input type="text" name="name" class="form-control" id="create-event--name">
+                <label for="create-event--name" class="form-label">Name</label>
+            </div>
+
+            <div class="form-floating mb-3">
+                <input type="text" name="description" class="form-control" id="create-event--description">
+                <label for="create-event--description" class="form-label">Description</label>
+            </div>
+
+            <div class="form-floating mb-3">
+                <input type="datetime" name="start_timestamp" class="form-control" id="create-event--start_timestamp">
+                <label for="create-event--start_timestamp" class="form-label">Start time</label>
+            </div>
+
+            <div class="form-floating mb-3">
+                <textarea rows="5" cols="60" type="text" name="ticket_contents" class="form-control h-75"
+                    id="create-event--ticket_contents">
 [
-    {"id": "1", "seat_id": "101", "price": "97"},
-    {"id": "2", "seat_id": "102", "price": "97"},
-    {"id": "3", "seat_id": "103", "price": "97"}
+{"id": "1", "seat_id": "101", "price": "97"},
+{"id": "2", "seat_id": "102", "price": "97"},
+{"id": "3", "seat_id": "103", "price": "97"}
 ]
-        </textarea>
-        <button name="function" value="create_event">Create event</button>
-    </form>
+            </textarea>
+                <label for="create-event--ticket_contents" class="form-label">Contents</label>
+            </div>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <a href="/id/{user_id}" class="btn btn-outline-secondary">Cancel</a>
+                <button name="function" value="create_event" class="btn btn-primary">Create event</button>
+            </div>
+
+        </form>
+    </div>
 </body>
 
 </html>

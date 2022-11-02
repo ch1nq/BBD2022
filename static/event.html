@@ -1,20 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TicketTime</title>
-</head>
+{header}
 
 <body>
-    <a href="/id/{user_id}">Home</a>
-    <h2>Event</h2>
-    <p>Event id: {event_id}</p>
-    <p>Status: {event_status}</p>
-    <p>Tickets for sale: {tickets_for_sale}</p>
-    {event_actions}
+    {navbar}
+    <div class="vstack gap-2 col-md-5 mx-auto">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Event: {event_name}</h5>
+                <div class="mb-3">
+                    {event_id} {event_status} {you_are_owner}
+                </div>
+                <p class="card-text">Tickets for sale: </p>
+                {tickets_for_sale}
+                <hr>
+                {event_actions}
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>

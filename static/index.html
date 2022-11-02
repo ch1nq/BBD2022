@@ -1,28 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TicketTime</title>
-</head>
+{header}
 
 <body>
-    <h1>TicketTime</h1>
-    <p>Welcome to TicketTime.</p>
-    <p>User ID: <span>{user_id}</span></p>
-    <p>Address: <span>{address}</span></p>
-    <p>Balance: <span>{balance}</span></p>
-    <p>Available to withdraw: <span>{withdraw_amount}</span></p>
-    <form action="" method="post"><button name="function" value="withdraw">Withdraw now</button></form>
-    <h2>Your tickets:</h2>
-    <div class="tickets">{tickets}</div>
-    <div class="event-overview">
-        <h2>Current events</h2>
-        {event_overview}
+    {navbar}
+    <div class="vstack gap-2 col-md-5 mx-auto">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Welcome to TicketTime</h5>
+                <p class="card-text">A ticketing platform powered by blockchain. Please enjoy!</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Account</h5>
+                <p class="card-text">Address: {address}
+                </p>
+                <p class="card-text">Balance: <span
+                        class="p-1 border border-secondary rounded bg-light text-secondary">{balance}</span>
+                </p>
+                <p class="card-text">Available to withdraw: <span
+                        class="p-1 border border-secondary rounded bg-light text-secondary">{withdraw_amount}</span>
+                </p>
+                <form action="" method="post">
+                    <button name="function" value="withdraw" class="btn btn-primary">Withdraw now</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Your tickets</h5>
+                {tickets}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Current events</h5>
+                <div class="card-text mb-2">{event_overview}</div>
+                <hr>
+                <a href="/id/{user_id}/create_event/" class="btn btn-primary">Create event</a>
+            </div>
+        </div>
     </div>
-    <a href="/id/{user_id}/create_event/">Create event</a>
 </body>
 
 </html>
