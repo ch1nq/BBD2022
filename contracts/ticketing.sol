@@ -46,10 +46,17 @@ contract TicketingSystem {
     // address systemOwner;
     mapping(address => uint256) pendingReturns;
 
-    mapping(EventID => Event) public events;
+    mapping(EventID => Event) public all_events;
     mapping(TicketID => Ticket) public tickets;
-    mapping(Host => mapping(EventID => bool)) public ownershipEvents;
-    mapping(User => mapping(TicketID => bool)) public ownershipTickets;
+
+    mapping(Host => uint256) public ownershipEventsTotal;
+    mapping(Host => mapping(uint256 => EventID)) public ownershipEvents;
+    
+    mapping(User => uint256) public ownershipTicketsTotal;
+    mapping(User => mapping(uint256 => TicketID)) public ownershipTickets;
+    
+    uint256 total_events;
+    mapping(uint256 => EventID) public event_ids;
 
     // Events:
     // event created
@@ -69,7 +76,9 @@ contract TicketingSystem {
     error NotEventHost(EventID event_id);
     error TimeNotPassedStartDate(uint256 start_time, uint256 current_time);
 
-    constructor() {}
+    constructor() {
+        total_events = 0;
+    }
 
     /// Creates a new event with the message sender as the host
     function createEvent(
@@ -78,14 +87,12 @@ contract TicketingSystem {
         string memory description,
         UnixTimestamp start_timestamp,
         TicketContent[] memory ticket_contents
-    ) public {        
-        if (events[event_id].status != EventStatus.DoesNotExist) {
-            revert EventAlreadyExists(event_id);
-        }
+    ) public {
+        require(all_events[event_id].status == EventStatus.DoesNotExist, "Event already exists");
 
         // Initialize event and associate it with the host
-        ownershipEvents[Host.wrap(msg.sender)][event_id] = true;
-        events[event_id] = Event({
+        ownershipEvents[Host.wrap(msg.sender)][ownershipEventsTotal[Host.wrap(msg.sender)]++] = event_id;
+        all_events[event_id] = Event({
             owner: Host.wrap(msg.sender),
             name: name,
             description: description,
@@ -93,11 +100,15 @@ contract TicketingSystem {
             status: EventStatus.Active,
             ticket_ids: new TicketID[](ticket_contents.length)
         });
+        event_ids[total_events++] = event_id;
 
         // Create tickets and assign the host as the owner of them
         for (uint i = 0; i < ticket_contents.length; i++) {
             TicketID ticket_id = ticket_contents[i].id;
-            ownershipTickets[User.wrap(msg.sender)][ticket_id] = true;
+            if (User.unwrap(tickets[ticket_id].owner) != address(0x0)){
+                revert("A ticket with an ID that already exists was provided");
+            }
+            ownershipTickets[User.wrap(msg.sender)][ownershipTicketsTotal[User.wrap(msg.sender)]++] = ticket_id;
             tickets[ticket_id] = Ticket({
                 owner: User.wrap(msg.sender),
                 event_id: event_id,
@@ -106,7 +117,7 @@ contract TicketingSystem {
                 is_for_sale: true,
                 is_payed_for: false
             });
-            events[event_id].ticket_ids.push(ticket_id);
+            all_events[event_id].ticket_ids[i] = ticket_id;
         }
     }
 
@@ -128,18 +139,41 @@ contract TicketingSystem {
         tickets[ticket_id].is_for_sale = false;
     }
 
+    function transferTicket(TicketID ticket_id, User previous_owner, User new_owner) private 
+        eventIsActive(tickets[ticket_id].event_id) 
+    {
+        // Append ownership of ticket_id to new owner
+        ownershipTickets[new_owner][ownershipTicketsTotal[new_owner]++] = ticket_id;
+
+        // Remove ownership of ticket_id from previous owner
+        uint256 prev_owner_total_tickets = ownershipTicketsTotal[previous_owner];
+        for(uint i = 0; i < prev_owner_total_tickets; i++) {
+            uint256 id = TicketID.unwrap(ownershipTickets[previous_owner][i]);
+            if(id == TicketID.unwrap(ticket_id)) {
+                // Move last element of list here to avoid any gaps in list 
+                TicketID last_element = ownershipTickets[previous_owner][prev_owner_total_tickets-1];
+                ownershipTickets[previous_owner][i] = last_element;
+                ownershipTicketsTotal[previous_owner]--;
+                break;
+            }
+        }
+    }
+
+    function sendTicket(TicketID ticket_id, User new_owner) public 
+        onlyTicketOwner(ticket_id)
+        eventIsActive(tickets[ticket_id].event_id) 
+    {
+        User previous_owner = User.wrap(msg.sender);
+        transferTicket(ticket_id, previous_owner, new_owner);
+    }
+
     /// 
     function buyTicket(TicketID ticket_id) public payable
         ticketIsForSale(ticket_id)
         eventIsActive(tickets[ticket_id].event_id) 
     {
-        // You can't transfer tickets to yourself
-        if (User.unwrap(tickets[ticket_id].owner) == msg.sender) {
-            revert SelfTransfer();
-        }
-        if (msg.value < tickets[ticket_id].price) {
-            revert NotEnoughFunds(tickets[ticket_id].price);
-        }
+        require(User.unwrap(tickets[ticket_id].owner) != msg.sender, "You cannot transfer tickets to yourself");
+        require(msg.value >= tickets[ticket_id].price, "Not enough funds were sent with message");
 
         User previous_owner = tickets[ticket_id].owner;
         User new_owner = User.wrap(msg.sender);
@@ -148,8 +182,7 @@ contract TicketingSystem {
         tickets[ticket_id].is_for_sale = false;
         tickets[ticket_id].is_payed_for = true;
 
-        ownershipTickets[new_owner][ticket_id] = true;
-        ownershipTickets[previous_owner][ticket_id] = false;
+        transferTicket(ticket_id, previous_owner, new_owner);
 
         // Transfer funds from new owner to previous owner
         pendingReturns[User.unwrap(previous_owner)] += msg.value;
@@ -160,11 +193,11 @@ contract TicketingSystem {
         onlyEventHost(event_id) 
         eventIsActive(event_id) 
     {
-        events[event_id].status = EventStatus.Cancelled;
+        all_events[event_id].status = EventStatus.Cancelled;
 
         // Refund all ticket owners for event 
-        for(uint i = 0; i < events[event_id].ticket_ids.length; i++) {
-            TicketID ticket_id = events[event_id].ticket_ids[i];
+        for(uint i = 0; i < all_events[event_id].ticket_ids.length; i++) {
+            TicketID ticket_id = all_events[event_id].ticket_ids[i];
             
             // Only refund tickets that are payed for - e.g. the tickets
             // issued by the event host that have not been bought by anyone. 
@@ -183,18 +216,18 @@ contract TicketingSystem {
         onlyEventHost(event_id)
         eventIsActive(event_id)
     {
-        if(block.timestamp < UnixTimestamp.unwrap(events[event_id].start_timestamp)) {
+        if(block.timestamp < UnixTimestamp.unwrap(all_events[event_id].start_timestamp)) {
             revert TimeNotPassedStartDate(
-                UnixTimestamp.unwrap(events[event_id].start_timestamp), 
+                UnixTimestamp.unwrap(all_events[event_id].start_timestamp), 
                 block.timestamp
             );
         }
         
-        events[event_id].status = EventStatus.Completed;
+        all_events[event_id].status = EventStatus.Completed;
         
         // Pay host
-        for(uint i = 0; i < events[event_id].ticket_ids.length; i++) {
-            TicketID ticket_id = events[event_id].ticket_ids[i];
+        for(uint i = 0; i < all_events[event_id].ticket_ids.length; i++) {
+            TicketID ticket_id = all_events[event_id].ticket_ids[i];
             
             // Only transfer funds for tickets that have been payed for
             // - e.g. not the tickets issued by the event host that have 
@@ -225,87 +258,53 @@ contract TicketingSystem {
 
     /// Ensures that msg.sender is the host of the given event
     modifier onlyEventHost(EventID event_id) {
-        if (Host.unwrap(events[event_id].owner) != msg.sender) {
-            revert NotEventHost(event_id);
-        }
+        require(Host.unwrap(all_events[event_id].owner) == msg.sender, "You are not the host of the event");
         _;
     }
 
     /// Ensures that msg.sender is the owner of the given ticket
     modifier onlyTicketOwner(TicketID ticket_id) {
-        if (User.unwrap(tickets[ticket_id].owner) != msg.sender) {
-            revert NotTicketOwner(ticket_id);
-        }
+        require(User.unwrap(tickets[ticket_id].owner) == msg.sender, "You are not the ticket owner");
         _;
     }
 
     /// Ensures that event exists and is active - e.g. not cancelled or complete
     modifier eventIsActive(EventID event_id) {
-        if(events[event_id].status != EventStatus.Active) {
-            revert EventNotActive(event_id);
-        }
+        require(all_events[event_id].status == EventStatus.Active, "Event is not active");
         _;
     }
 
     /// Ensures that a ticket is for sale
     modifier ticketIsForSale(TicketID ticket_id) {
-        if(!tickets[ticket_id].is_for_sale) {
-            revert TicketNotForSale(ticket_id);
-        }
+        require(User.unwrap(tickets[ticket_id].owner) != address(0x0), "Ticket does not exist");
+        require(tickets[ticket_id].is_for_sale, "Ticket is not for sale");
         _;
     }
 
-    /// Returns the public key of the owner assciated with this ticket
-    /// Can be used to verify the ownership of the ticket 
-    // function getTicketEncryptedID(
-    //     User user, 
-    //     TicketID ticket_id
-    // ) public view returns (string memory) {
-    //     // TODO: verify ticket 
-    // }
-
-    function getTicketsForSale(EventID event_id) public view returns (Ticket[] memory) {
-        Ticket[] memory event_tickets = new Ticket[](events[event_id].ticket_ids.length);
-        uint tickets_for_sale = 0;
-        for(uint i; i < events[event_id].ticket_ids.length; i++){
-            TicketID ticket_id = events[event_id].ticket_ids[i];
-            if(event_tickets[i].is_for_sale) {
-                event_tickets[tickets_for_sale] = tickets[ticket_id];
-                tickets_for_sale++;
-            }
-        }
-        return event_tickets;
+    function getPendingReturns() public view returns (uint256) {
+        return pendingReturns[msg.sender];
     }
 
-    function getCheapestTickets(EventID event_id) public view returns (Ticket memory) {
-        Ticket[] memory tickets_for_sale = getTicketsForSale(event_id);
-        uint256 cheapest_ticket_price = getMaxUint();
-        uint256 cheapest_ticket_index = getMaxUint();
-        for(uint i; i < tickets_for_sale.length; i++) {
-            // Stop once the first non-existing ticket is reached, 
-            // since we assume that tickets_for_sale contains all tickets
-            // for sale in the start of the array.
-            if(EventID.unwrap(tickets_for_sale[i].event_id) == 0x0) {
-                break;
-            }
-
-            // TODO: handle case where multiple tickets are the cheapest
-            if(tickets_for_sale[i].price < cheapest_ticket_price) {
-                cheapest_ticket_index = i;
-            }
+    function getAllEvents() public view returns (EventID[] memory, Event[] memory) {
+        Event[] memory _events = new Event[](total_events);
+        EventID[] memory _events_ids = new EventID[](total_events);
+        for(uint i; i < total_events; i++) {
+            _events_ids[i] = event_ids[i];
+            _events[i] = all_events[event_ids[i]];
         }
-
-        // If the index is larger than the array length then no ticket was found
-        require(cheapest_ticket_index > tickets_for_sale.length);
-
-        return tickets_for_sale[cheapest_ticket_index];
+        return (_events_ids, _events);
     }
 
-    /// Largest uint256 possible. Calculated using underflow 
-    function getMaxUint() public pure returns(uint256){
-        unchecked{
-            return uint256(0) - 1;
+    function getEvent(EventID event_id) public view returns (Event memory) {
+        return all_events[event_id];
+    }
+
+    function getTicketsForUser(User user) public view returns (TicketID[] memory) {
+        TicketID[] memory _tickets = new TicketID[](ownershipTicketsTotal[user]);
+        for(uint i = 0; i < ownershipTicketsTotal[user]; i++) {
+            _tickets[i] = ownershipTickets[user][i];
         }
+        return _tickets;
     }
 
 }

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TicketTime</title>
+</head>
+
+<body>
+    <h1>TicketTime</h1>
+    <p>Welcome to TicketTime.</p>
+    <p>User ID: <span>{user_id}</span></p>
+    <p>Address: <span>{address}</span></p>
+    <p>Balance: <span>{balance}</span></p>
+    <p>Available to withdraw: <span>{withdraw_amount}</span></p>
+    <form action="" method="post"><button name="function" value="withdraw">Withdraw now</button></form>
+    <h2>Your tickets:</h2>
+    <div class="tickets">{tickets}</div>
+    <div class="event-overview">
+        <h2>Current events</h2>
+        {event_overview}
+    </div>
+    <a href="/id/{user_id}/create_event/">Create event</a>
+</body>
+
+</html>
