@@ -97,9 +97,8 @@ class TicketingSystemAPI:
         self.contract.removeTicketFromSale(ticket_id, {"from": accounts[user_id]})
 
     def send_ticket(self, user_id, reciever_id, ticket_id):
-        reciever_address = accounts[reciever_id]
         self.contract.sendTicket(
-            ticket_id, reciever_address, {"from": accounts[user_id]}
+            ticket_id, accounts[reciever_id], {"from": accounts[user_id]}
         )
 
     def buy_ticket(self, user_id, ticket_id):

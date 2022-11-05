@@ -17,6 +17,8 @@ def start_server():
     app.run()
 
 
+# Deduct money from accounts 1-8, in order for them to have
+# more sensible credits
 def reduce_money():
     hidden_account = accounts[9]
     for user_id in range(9):
@@ -79,7 +81,7 @@ def ticket_list(user_id, tickets) -> str:
         event = system.get_event(ticket["event_id"])
         return f"""
             <a href="/id/{user_id}/ticket/{ticket["ticket_id"]}" class="btn btn-outline-secondary btn-sm">
-                ID: {ticket["ticket_id"]} - {event["name"]}, seat {ticket["seat_id"]}
+                {event["name"]}; seat {ticket["seat_id"]}
             </a>
         """
 
@@ -110,6 +112,7 @@ def ticket_actions(user_id, ticket_id):
             """
         else:
             market_action = """
+                <p>Sell ticket:</p>
                 <div class="input-group mb-3">
                     <div class="form-floating">
                         <input class="form-control" id="ticket--sell" type="number" name="price" placeholder="100">
@@ -124,6 +127,7 @@ def ticket_actions(user_id, ticket_id):
                 <input class="form-control" type="hidden" name="ticket_id" value="{ticket_id}">
                 {market_action}
                 <hr>
+                <p>Send ticket to another user:</p>
                 <div class="input-group mb-3">
                     <div class="form-floating">
                         <input class="form-control" id="ticket--reciever" type="number" name="reciever" placeholder="">
@@ -312,6 +316,7 @@ def event_page(user_id, event_id):
             .replace("{event_name}", event["name"])
             .replace("{event_id}", badge(f"ID: {event_id}"))
             .replace("{event_status}", status_badge(event))
+            .replace("{event_description}", event["description"])
             .replace("{you_are_owner}", is_owner_badge(user_id, event_id))
             .replace(
                 "{tickets_for_sale}",

@@ -31,7 +31,7 @@ contract TicketingSystem {
         SeatID seat_id;
         uint256 price; /// The price the ticket is selling for
         bool is_for_sale;
-        bool is_payed_for;
+        uint256 host_amount; /// The funds the host will recieve, once event is completed
         // string encrypted_ticket_id; /// The id of the ticket encrypted using the owners private key
     }
 
@@ -41,9 +41,6 @@ contract TicketingSystem {
         uint256 price;
     }
 
-    /// Address deploying the instance of the contract. It will function as an
-    /// intermediary address between users and event hosts. 
-    // address systemOwner;
     mapping(address => uint256) pendingReturns;
 
     mapping(EventID => Event) public all_events;
@@ -115,7 +112,7 @@ contract TicketingSystem {
                 seat_id: ticket_contents[i].seat_id,
                 price: ticket_contents[i].price,
                 is_for_sale: true,
-                is_payed_for: false
+                host_amount: 0
             });
             all_events[event_id].ticket_ids[i] = ticket_id;
         }
@@ -142,6 +139,9 @@ contract TicketingSystem {
     function transferTicket(TicketID ticket_id, User previous_owner, User new_owner) private 
         eventIsActive(tickets[ticket_id].event_id) 
     {
+        // Update owner on the ticket
+        tickets[ticket_id].owner = new_owner;
+
         // Append ownership of ticket_id to new owner
         ownershipTickets[new_owner][ownershipTicketsTotal[new_owner]++] = ticket_id;
 
@@ -178,14 +178,17 @@ contract TicketingSystem {
         User previous_owner = tickets[ticket_id].owner;
         User new_owner = User.wrap(msg.sender);
 
-        tickets[ticket_id].owner = new_owner;
         tickets[ticket_id].is_for_sale = false;
-        tickets[ticket_id].is_payed_for = true;
 
         transferTicket(ticket_id, previous_owner, new_owner);
 
-        // Transfer funds from new owner to previous owner
-        pendingReturns[User.unwrap(previous_owner)] += msg.value;
+        Host event_host = all_events[tickets[ticket_id].event_id].owner;
+        if(User.unwrap(previous_owner) != Host.unwrap(event_host)){
+            // Transfer funds from new owner to previous owner
+            pendingReturns[User.unwrap(previous_owner)] += msg.value;
+        } else {
+            tickets[ticket_id].host_amount = msg.value;
+        }
     }
 
     /// Marks event as "cancelled", destroys tickets and refunds money to users
@@ -201,13 +204,13 @@ contract TicketingSystem {
             
             // Only refund tickets that are payed for - e.g. the tickets
             // issued by the event host that have not been bought by anyone. 
-            if (tickets[ticket_id].is_payed_for) {
-                address owner_address = User.unwrap(tickets[ticket_id].owner);
+            Host event_host = all_events[tickets[ticket_id].event_id].owner;
+            address owner_address = User.unwrap(tickets[ticket_id].owner);
+            if(owner_address != Host.unwrap(event_host)){
                 pendingReturns[owner_address] += tickets[ticket_id].price;
             }
         }
         
-        // TODO: condsider destroying tickets here, if it makes thing more efficient
     }
 
     /// Marks event as "completed" and transfers funds to host.
@@ -228,13 +231,7 @@ contract TicketingSystem {
         // Pay host
         for(uint i = 0; i < all_events[event_id].ticket_ids.length; i++) {
             TicketID ticket_id = all_events[event_id].ticket_ids[i];
-            
-            // Only transfer funds for tickets that have been payed for
-            // - e.g. not the tickets issued by the event host that have 
-            // not been bought by anyone. 
-            if (tickets[ticket_id].is_payed_for) {
-                pendingReturns[msg.sender] += tickets[ticket_id].price;
-            }
+            pendingReturns[msg.sender] += tickets[ticket_id].host_amount;
         }
     }
 
