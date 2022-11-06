@@ -32,7 +32,6 @@ contract TicketingSystem {
         uint256 price; /// The price the ticket is selling for
         bool is_for_sale;
         uint256 host_amount; /// The funds the host will recieve, once event is completed
-        // string encrypted_ticket_id; /// The id of the ticket encrypted using the owners private key
     }
 
     struct TicketContent {
@@ -54,10 +53,6 @@ contract TicketingSystem {
     
     uint256 total_events;
     mapping(uint256 => EventID) public event_ids;
-
-    // Events:
-    // event created
-    // event cancelled 
 
     // Ticket errors
     error NotEnoughFunds(uint funds_needed);
@@ -159,6 +154,7 @@ contract TicketingSystem {
         }
     }
 
+    /// Buy a ticket to another user.
     function sendTicket(TicketID ticket_id, User new_owner) public 
         onlyTicketOwner(ticket_id)
         eventIsActive(tickets[ticket_id].event_id) 
@@ -167,7 +163,7 @@ contract TicketingSystem {
         transferTicket(ticket_id, previous_owner, new_owner);
     }
 
-    /// 
+    /// Buy a ticket from another user. The ticket must be for sale
     function buyTicket(TicketID ticket_id) public payable
         ticketIsForSale(ticket_id)
         eventIsActive(tickets[ticket_id].event_id) 
@@ -235,7 +231,7 @@ contract TicketingSystem {
         }
     }
 
-    /// Withdraw funds 
+    /// Withdraw funds from contract. 
     function withdraw() public returns (bool) {
         uint amount = pendingReturns[msg.sender];
         if (amount > 0) {
@@ -278,10 +274,12 @@ contract TicketingSystem {
         _;
     }
 
+    /// View the current amount you can withdraw.
     function getPendingReturns() public view returns (uint256) {
         return pendingReturns[msg.sender];
     }
 
+    /// Returns a list of all current events
     function getAllEvents() public view returns (EventID[] memory, Event[] memory) {
         Event[] memory _events = new Event[](total_events);
         EventID[] memory _events_ids = new EventID[](total_events);
@@ -292,10 +290,12 @@ contract TicketingSystem {
         return (_events_ids, _events);
     }
 
+    /// Returns the specified event
     function getEvent(EventID event_id) public view returns (Event memory) {
         return all_events[event_id];
     }
 
+    /// Returns the tickets that the provided user is the owner of.
     function getTicketsForUser(User user) public view returns (TicketID[] memory) {
         TicketID[] memory _tickets = new TicketID[](ownershipTicketsTotal[user]);
         for(uint i = 0; i < ownershipTicketsTotal[user]; i++) {
