@@ -1,7 +1,7 @@
 import json
 
 from typing import List
-from flask import Flask, request, redirect
+from flask import Flask, request, redirect, send_from_directory
 from scripts.contract import TicketingSystemAPI
 from brownie.exceptions import VirtualMachineError
 from brownie import accounts
@@ -52,6 +52,11 @@ def error_page(user_id, error_msg):
 @app.route("/user-select")
 def user_select():
     return get_component("user_select").replace("{header}", get_component("header"))
+
+
+@app.route("/assets/<path:path>")
+def get_asset(path):
+    return send_from_directory("../assets", path)
 
 
 def event_list(user_id, events) -> str:
